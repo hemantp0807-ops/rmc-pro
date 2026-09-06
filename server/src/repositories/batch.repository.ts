@@ -372,303 +372,385 @@ b.driver_id,
 export async function createBatch(
   data: BatchData
 ) {
-  /*
-   * Find previous cumulative quantity
-   * for the same customer and same grade.
-   * Date does NOT affect cumulative quantity.
-   */
+  const client = await pool.connect();
 
-  const previousResult = await pool.query(
-    `
-      SELECT b.cumulative_qty
-      FROM batches b
-      JOIN recipes r
-        ON b.recipe_id = r.id
-      WHERE b.customer_id = $1
-        AND r.grade = (
-          SELECT grade
-          FROM recipes
-          WHERE id = $2
-        )
-      ORDER BY b.id DESC
-      LIMIT 1;
-    `,
-    [
-      data.customerId,
-      data.recipeId,
-    ]
-  );
+  try {
+    /*
+     * =================================================
+     * START TRANSACTION
+     * =================================================
+     */
+    await client.query("BEGIN");
 
-  const previousCumulativeQty =
-    previousResult.rows.length > 0
-      ? Number(previousResult.rows[0].cumulative_qty) || 0
-      : 0;
+    /*
+     * =================================================
+     * LOCK BATCH CREATION
+     * =================================================
+     *
+     * This guarantees that only one batch creation
+     * transaction can calculate numbers/cumulative
+     * quantity at a time.
+     *
+     * Admin + Operator can press Save together,
+     * but PostgreSQL will process them safely one
+     * after another.
+     */
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtext('rmc_batch_create'))"
+    );
 
- const cumulativeQty =
-  previousCumulativeQty +
-  Number(data.orderQty);
+    /*
+     * =================================================
+     * GENERATE NEXT ORDER / DELIVERY / TICKET NUMBERS
+     * =================================================
+     *
+     * These numbers are generated HERE in PostgreSQL,
+     * NOT trusted from the frontend.
+     *
+     * We preserve your existing behavior:
+     * highest number from all batches + 1.
+     */
+    const numbersResult = await client.query(`
+      SELECT
+        COALESCE(MAX(order_no), 0) AS last_order_no,
+        COALESCE(MAX(delivery_no), 0) AS last_delivery_no,
+        COALESCE(MAX(ticket_no), 0) AS last_ticket_no
+      FROM batches;
+    `);
 
+    const lastOrderNo =
+      Number(numbersResult.rows[0]?.last_order_no) || 0;
 
-  /* ================================================= */
-  /* CREATE BATCH                                     */
-  /* ================================================= */
+    const lastDeliveryNo =
+      Number(numbersResult.rows[0]?.last_delivery_no) || 0;
 
-  const result = await pool.query(
-    `
-    INSERT INTO batches
-    (
-      batch_no,
+    const lastTicketNo =
+      Number(numbersResult.rows[0]?.last_ticket_no) || 0;
 
-      customer_id,
-      recipe_id,
-      vehicle_id,
-      driver_id,
+    const orderNo = lastOrderNo + 1;
+    const deliveryNo = lastDeliveryNo + 1;
+    const ticketNo = lastTicketNo + 1;
 
-      quantity,
-      cumulative_qty,
+    /*
+     * =================================================
+     * FIND PREVIOUS CUMULATIVE QUANTITY
+     * =================================================
+     *
+     * Same customer + same grade.
+     * Date is NOT considered.
+     */
+    const previousResult = await client.query(
+      `
+        SELECT b.cumulative_qty
+        FROM batches b
+        JOIN recipes r
+          ON b.recipe_id = r.id
+        WHERE b.customer_id = $1
+          AND r.grade = (
+            SELECT grade
+            FROM recipes
+            WHERE id = $2
+          )
+        ORDER BY b.id DESC
+        LIMIT 1;
+      `,
+      [
+        data.customerId,
+        data.recipeId,
+      ]
+    );
 
-      cement,
-      flyash,
-      sand,
-      mm10,
-      mm20,
-      water,
-      admix,
-      slump,
-      strength,
+    const previousCumulativeQty =
+      previousResult.rows.length > 0
+        ? Number(previousResult.rows[0].cumulative_qty) || 0
+        : 0;
 
-      cement_act,
-      flyash_act,
-      sand_act,
-      mm10_act,
-      mm20_act,
-      water_act,
-      admix_act,
+    const cumulativeQty =
+      previousCumulativeQty +
+      Number(data.orderQty);
 
-      order_no,
-      delivery_no,
-      ticket_no,
+    /*
+     * =================================================
+     * GENERATE UNIQUE BATCH NUMBER ON BACKEND
+     * =================================================
+     *
+     * We no longer depend on Date.now() from the
+     * browser.
+     *
+     * The timestamp + random suffix makes the value
+     * unique even when two users save simultaneously.
+     */
+    const batchNo =
+      `B${Date.now()}${Math.floor(Math.random() * 100000)}`;
 
-      order_qty,
-      ticket_qty,
-      order_qty_left,
-
-      batch_date,
-      batch_time,
-      end_time,
-
-      status,
-      type_of_loading
-    )
-
-    VALUES
-    (
-      $1,
-      $2,
-      $3,
-      $4,
-      $5,
-
-      $6,
-      $7,
-
-      $8,
-      $9,
-      $10,
-      $11,
-      $12,
-      $13,
-      $14,
-      $15,
-      $16,
-
-      $17,
-      $18,
-      $19,
-      $20,
-      $21,
-      $22,
-      $23,
-
-      $24,
-      $25,
-      $26,
-
-      $27,
-      $28,
-      $29,
-
-      $30,
-      $31,
-
-      $32,
-      $33,
-      $34
-    )
-
-    RETURNING *;
-    `,
-    [
-
-      /* 1 */
-      data.batchNo,
-
-      /* 2-5 */
-      data.customerId,
-      data.recipeId,
-      data.vehicleId,
-      data.driverId,
-
-      /* 6-7 */
-      data.quantity,
-      cumulativeQty,
-
-      /* 8-16 */
-      data.cement,
-      data.flyash,
-      data.sand,
-      data.mm10,
-      data.mm20,
-      data.water,
-      data.admix,
-      data.slump,
-      data.strength,
-
-      /* 17-23 */
-      data.cementAct,
-      data.flyashAct,
-      data.sandAct,
-      data.mm10Act,
-      data.mm20Act,
-      data.waterAct,
-      data.admixAct,
-
-      /* 24-26 */
-      data.orderNo,
-      data.deliveryNo,
-      data.ticketNo,
-
-      /* 27-29 */
-      data.orderQty,
-      data.ticketQty,
-      data.orderQtyLeft,
-
-      /* 30-32 */
-      data.batchDate,
-      data.batchTime,
-      data.endTime,
-
-      /* 33-34 */
-      data.status,
-      data.typeOfLoading,
-    ]
-  );
-
-
-  const createdBatch = result.rows[0];
-
-
-  /* ================================================= */
-  /* SAVE INDIVIDUAL REPORT ROWS                       */
-  /* ================================================= */
-
-  if (
-    data.reportRows &&
-    data.reportRows.length > 0
-  ) {
-
-    for (
-      const row of data.reportRows
-    ) {
-
-      await pool.query(
-        `
-        INSERT INTO batch_report_rows
+    /*
+     * =================================================
+     * CREATE BATCH
+     * =================================================
+     */
+    const result = await client.query(
+      `
+        INSERT INTO batches
         (
-          batch_id,
-          batch_size,
+          batch_no,
 
-          cement_set,
+          customer_id,
+          recipe_id,
+          vehicle_id,
+          driver_id,
+
+          quantity,
+          cumulative_qty,
+
+          cement,
+          flyash,
+          sand,
+          mm10,
+          mm20,
+          water,
+          admix,
+          slump,
+          strength,
+
           cement_act,
-
-          flyash_set,
           flyash_act,
-
-          sand_set,
           sand_act,
-
-          mm10_set,
           mm10_act,
-
-          mm20_set,
           mm20_act,
-
-          water_set,
           water_act,
+          admix_act,
 
-          admix_set,
-          admix_act
+          order_no,
+          delivery_no,
+          ticket_no,
+
+          order_qty,
+          ticket_qty,
+          order_qty_left,
+
+          batch_date,
+          batch_time,
+          end_time,
+
+          status,
+          type_of_loading
         )
 
         VALUES
         (
           $1,
           $2,
-
           $3,
           $4,
-
           $5,
+
           $6,
-
           $7,
-          $8,
 
+          $8,
           $9,
           $10,
-
           $11,
           $12,
-
           $13,
           $14,
-
           $15,
-          $16
+          $16,
+
+          $17,
+          $18,
+          $19,
+          $20,
+          $21,
+          $22,
+          $23,
+
+          $24,
+          $25,
+          $26,
+
+          $27,
+          $28,
+          $29,
+
+          $30,
+          $31,
+          $32,
+
+          $33,
+          $34
+        )
+
+        RETURNING *;
+      `,
+      [
+        /* 1 */
+        batchNo,
+
+        /* 2-5 */
+        data.customerId,
+        data.recipeId,
+        data.vehicleId,
+        data.driverId,
+
+        /* 6-7 */
+        data.quantity,
+        cumulativeQty,
+
+        /* 8-16 */
+        data.cement,
+        data.flyash,
+        data.sand,
+        data.mm10,
+        data.mm20,
+        data.water,
+        data.admix,
+        data.slump,
+        data.strength,
+
+        /* 17-23 */
+        data.cementAct,
+        data.flyashAct,
+        data.sandAct,
+        data.mm10Act,
+        data.mm20Act,
+        data.waterAct,
+        data.admixAct,
+
+        /* 24-26 */
+        orderNo,
+        deliveryNo,
+        ticketNo,
+
+        /* 27-29 */
+        data.orderQty,
+        data.ticketQty,
+        data.orderQtyLeft,
+
+        /* 30-32 */
+        data.batchDate,
+        data.batchTime,
+        data.endTime,
+
+        /* 33-34 */
+        data.status,
+        data.typeOfLoading,
+      ]
+    );
+
+    const createdBatch = result.rows[0];
+
+    /*
+     * =================================================
+     * SAVE INDIVIDUAL REPORT ROWS
+     * =================================================
+     */
+    if (
+      data.reportRows &&
+      data.reportRows.length > 0
+    ) {
+      for (const row of data.reportRows) {
+        await client.query(
+          `
+            INSERT INTO batch_report_rows
+            (
+              batch_id,
+              batch_size,
+
+              cement_set,
+              cement_act,
+
+              flyash_set,
+              flyash_act,
+
+              sand_set,
+              sand_act,
+
+              mm10_set,
+              mm10_act,
+
+              mm20_set,
+              mm20_act,
+
+              water_set,
+              water_act,
+
+              admix_set,
+              admix_act
+            )
+
+            VALUES
+            (
+              $1,
+              $2,
+
+              $3,
+              $4,
+
+              $5,
+              $6,
+
+              $7,
+              $8,
+
+              $9,
+              $10,
+
+              $11,
+              $12,
+
+              $13,
+              $14,
+
+              $15,
+              $16
+            );
+          `,
+          [
+            createdBatch.id,
+            row.batch_size,
+
+            row.cement_set,
+            row.cement_act,
+
+            row.flyash_set,
+            row.flyash_act,
+
+            row.sand_set,
+            row.sand_act,
+
+            row.mm10_set,
+            row.mm10_act,
+
+            row.mm20_set,
+            row.mm20_act,
+
+            row.water_set,
+            row.water_act,
+
+            row.admix_set,
+            row.admix_act,
+          ]
         );
-        `,
-        [
-
-          createdBatch.id,
-          row.batch_size,
-
-          row.cement_set,
-          row.cement_act,
-
-          row.flyash_set,
-          row.flyash_act,
-
-          row.sand_set,
-          row.sand_act,
-
-          row.mm10_set,
-          row.mm10_act,
-
-          row.mm20_set,
-          row.mm20_act,
-
-          row.water_set,
-          row.water_act,
-
-          row.admix_set,
-          row.admix_act,
-        ]
-      );
+      }
     }
+
+    /*
+     * =================================================
+     * COMMIT
+     * =================================================
+     */
+    await client.query("COMMIT");
+
+    return createdBatch;
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+
+  } finally {
+    client.release();
   }
-
-
-  return createdBatch;
 }
 /* ================================================= */
 /* UPDATE BATCH                                      */
