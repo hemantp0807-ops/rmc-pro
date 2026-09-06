@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS vehicles (
+    id SERIAL PRIMARY KEY,
+    vehicle_no VARCHAR(30) NOT NULL UNIQUE,
+    capacity NUMERIC(10,2) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Available',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

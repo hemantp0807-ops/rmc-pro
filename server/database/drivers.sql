@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS drivers (
+    id SERIAL PRIMARY KEY,
+    driver_name VARCHAR(100) NOT NULL,
+    mobile VARCHAR(15) NOT NULL UNIQUE,
+    license_no VARCHAR(50) NOT NULL UNIQUE,
+    status VARCHAR(20) NOT NULL DEFAULT 'Available',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
