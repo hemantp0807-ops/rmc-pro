@@ -986,18 +986,9 @@ setBatchDate(formattedDate);
       /* GENERATE BATCH REPORT ROWS                  */
       /* ACCORDING TO ORDER QTY                      */
       /* ------------------------------------------- */
-      const existingOrderQty = existingBatch
-        ? Number(
-          (existingBatch as any).orderQty ??
-          (existingBatch as any).order_qty ??
-          0
-        )
-        : 0;
+     
 
-      const orderQtyChanged =
-        editingBatchId !== null &&
-        existingBatch &&
-        existingOrderQty !== Number(orderQty);
+     
 const rows: BatchReportRow[] = (() => {
   const generatedRows: BatchReportRow[] = [];
 
@@ -1278,7 +1269,7 @@ const rows: BatchReportRow[] = (() => {
   id: editingBatchId,
         sr_no:
   Number(saved?.sr_no) ||
-  Number(existingBatch?.sr_no) ||
+  
   0,
   customer_id: previewBatch.customer_id,
   recipe_id: previewBatch.recipe_id,
