@@ -11,9 +11,6 @@ import {
   ShieldCheck,
   Users,
   BarChart3,
-  Factory,
-  Leaf,
-  UserRound,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { loginUser } from "../../services/auth.service";
@@ -121,22 +118,7 @@ export default function Login() {
     },
   };
 
-  const featureAnimation = {
-    hidden: {
-      opacity: 0,
-      y: 22,
-      scale: 0.94,
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        duration: 0.5,
-        ease: "easeOut" as const,
-      },
-    },
-  };
+ 
 
   // ============================================================
   // LOGIN
@@ -236,17 +218,16 @@ export default function Login() {
               duration: 1.4,
               ease: "easeOut",
             }}
-            className="
-              absolute
-              inset-0
-              bg-cover
-              bg-center
-              bg-no-repeat
-            "
-            style={{
-              backgroundImage:
-                "url('/login-background.jpeg')",
-            }}
+           className="
+  absolute
+  inset-0
+  bg-cover
+  bg-no-repeat
+"
+style={{
+  backgroundImage: "url('/login-background.jpeg')",
+  backgroundPosition: "calc(50% - 200px) center",
+}}
           />
 
           {/* Dark Gradient */}
@@ -344,7 +325,7 @@ export default function Login() {
                   text-white
                 "
               >
-                Building a Stronger Tomorrow
+                "MIXING THE STRENGTH"
               </p>
 
               <div
@@ -1046,202 +1027,10 @@ export default function Login() {
             </motion.form>
 
 
-            {/* ================================================= */}
-            {/* OR                                                */}
-            {/* ================================================= */}
-
-            <motion.div
-              variants={formItem}
-              initial="hidden"
-              animate="visible"
-              className="
-                mt-[27px]
-                flex
-                items-center
-                gap-4
-              "
-            >
-
-              <div className="h-px flex-1 bg-slate-200" />
-
-              <span
-                className="
-                  text-[14px]
-                  font-medium
-                  text-slate-500
-                "
-              >
-                OR
-              </span>
-
-              <div className="h-px flex-1 bg-slate-200" />
-
-            </motion.div>
+           
 
 
-            {/* ================================================= */}
-            {/* THREE FEATURE BOXES                               */}
-            {/* ================================================= */}
-
-            <motion.div
-              variants={leftContainer}
-              initial="hidden"
-              animate="visible"
-              className="
-                mt-[20px]
-                grid
-                grid-cols-3
-                gap-[14px]
-              "
-            >
-
-              {/* SAFE OPERATIONS */}
-
-              <motion.div
-                variants={featureAnimation}
-                whileHover={{
-                  y: -5,
-                  scale: 1.025,
-                  transition: {
-                    duration: 0.2,
-                  },
-                }}
-                className="
-                  flex
-                  h-[107px]
-                  flex-col
-                  items-center
-                  justify-center
-                  rounded-[11px]
-                  border
-                  border-slate-100
-                  bg-white
-                  shadow-[0_4px_14px_rgba(15,23,42,0.045)]
-                "
-              >
-
-                <Factory
-                  size={29}
-                  strokeWidth={2.1}
-                  className="text-slate-900"
-                />
-
-                <p
-                  className="
-                    mt-2
-                    text-center
-                    text-[14px]
-                    font-medium
-                    leading-tight
-                    text-slate-800
-                  "
-                >
-                  Safe
-                  <br />
-                  Operations
-                </p>
-
-              </motion.div>
-
-
-              {/* SUSTAINABLE FUTURE */}
-
-              <motion.div
-                variants={featureAnimation}
-                whileHover={{
-                  y: -5,
-                  scale: 1.025,
-                  transition: {
-                    duration: 0.2,
-                  },
-                }}
-                className="
-                  flex
-                  h-[107px]
-                  flex-col
-                  items-center
-                  justify-center
-                  rounded-[11px]
-                  border
-                  border-slate-100
-                  bg-white
-                  shadow-[0_4px_14px_rgba(15,23,42,0.045)]
-                "
-              >
-
-                <Leaf
-                  size={30}
-                  strokeWidth={2.1}
-                  className="text-slate-900"
-                />
-
-                <p
-                  className="
-                    mt-2
-                    text-center
-                    text-[14px]
-                    font-medium
-                    leading-tight
-                    text-slate-800
-                  "
-                >
-                  Sustainable
-                  <br />
-                  Future
-                </p>
-
-              </motion.div>
-
-
-              {/* CUSTOMER SATISFACTION */}
-
-              <motion.div
-                variants={featureAnimation}
-                whileHover={{
-                  y: -5,
-                  scale: 1.025,
-                  transition: {
-                    duration: 0.2,
-                  },
-                }}
-                className="
-                  flex
-                  h-[107px]
-                  flex-col
-                  items-center
-                  justify-center
-                  rounded-[11px]
-                  border
-                  border-slate-100
-                  bg-white
-                  shadow-[0_4px_14px_rgba(15,23,42,0.045)]
-                "
-              >
-
-                <UserRound
-                  size={30}
-                  strokeWidth={2.1}
-                  className="text-slate-900"
-                />
-
-                <p
-                  className="
-                    mt-2
-                    text-center
-                    text-[14px]
-                    font-medium
-                    leading-tight
-                    text-slate-800
-                  "
-                >
-                  Customer
-                  <br />
-                  Satisfaction
-                </p>
-
-              </motion.div>
-
-            </motion.div>
+          
 
 
             {/* ================================================= */}

@@ -431,43 +431,53 @@ export async function createBatch(
     const deliveryNo = lastDeliveryNo + 1;
     const ticketNo = lastTicketNo + 1;
 
-    /*
-     * =================================================
-     * FIND PREVIOUS CUMULATIVE QUANTITY
-     * =================================================
-     *
-     * Same customer + same grade.
-     * Date is NOT considered.
-     */
-    const previousResult = await client.query(
-      `
-        SELECT b.cumulative_qty
-        FROM batches b
-        JOIN recipes r
-          ON b.recipe_id = r.id
-        WHERE b.customer_id = $1
-          AND r.grade = (
-            SELECT grade
-            FROM recipes
-            WHERE id = $2
-          )
-        ORDER BY b.id DESC
-        LIMIT 1;
-      `,
-      [
-        data.customerId,
-        data.recipeId,
-      ]
-    );
+   /*
+ * =================================================
+ * FIND PREVIOUS CUMULATIVE QUANTITY
+ * =================================================
+ *
+ * Same customer + same grade + same date.
+ *
+ * Date IS considered.
+ * Cumulative quantity resets on a new date.
+ *
+ * Example:
+ * 07-Sep ABC M25 -> 5, 6 = 11
+ * 08-Sep ABC M25 -> 7      = 7
+ */
 
-    const previousCumulativeQty =
-      previousResult.rows.length > 0
-        ? Number(previousResult.rows[0].cumulative_qty) || 0
-        : 0;
+const previousResult = await client.query(
+  `
+    SELECT b.cumulative_qty
+    FROM batches b
+    JOIN recipes r
+      ON b.recipe_id = r.id
+    WHERE b.customer_id = $1
+      AND r.grade = (
+        SELECT grade
+        FROM recipes
+        WHERE id = $2
+      )
+      AND DATE(b.batch_date) = DATE($3)
+      AND b.status <> 'Cancelled'
+    ORDER BY b.id DESC
+    LIMIT 1;
+  `,
+  [
+    data.customerId,
+    data.recipeId,
+    data.batchDate,
+  ]
+);
 
-    const cumulativeQty =
-      previousCumulativeQty +
-      Number(data.orderQty);
+const previousCumulativeQty =
+  previousResult.rows.length > 0
+    ? Number(previousResult.rows[0].cumulative_qty) || 0
+    : 0;
+
+const cumulativeQty =
+  previousCumulativeQty +
+  Number(data.orderQty);
 
     /*
      * =================================================
@@ -766,13 +776,14 @@ export async function updateBatch(
     await client.query("BEGIN");
     const oldBatchResult = await client.query(
   `
-  SELECT
-    b.customer_id,
-    r.grade
-  FROM batches b
-  JOIN recipes r
-    ON b.recipe_id = r.id
-  WHERE b.id = $1;
+ SELECT
+  b.customer_id,
+  r.grade,
+  b.batch_date
+FROM batches b
+JOIN recipes r
+  ON b.recipe_id = r.id
+WHERE b.id = $1;
   `,
   [id]
 );
@@ -782,6 +793,9 @@ const oldCustomerId =
 
 const oldGrade =
   oldBatchResult.rows[0]?.grade;
+
+  const oldBatchDate =
+  oldBatchResult.rows[0]?.batch_date;
     const result = await client.query(
       `
       UPDATE batches
@@ -920,24 +934,27 @@ const newGrade =
  */
 async function recalculateCumulative(
   customerId: number,
-  grade: string
+  grade: string,
+  batchDate: string
 ) {
   const result = await client.query(
     `
-    SELECT
-      b.id,
-      b.order_qty
-    FROM batches b
-    JOIN recipes r
-      ON b.recipe_id = r.id
-    WHERE b.customer_id = $1
-      AND r.grade = $2
-      AND b.status <> 'Cancelled'
-    ORDER BY b.id ASC;
+      SELECT
+        b.id,
+        b.order_qty
+      FROM batches b
+      JOIN recipes r
+        ON b.recipe_id = r.id
+      WHERE b.customer_id = $1
+        AND r.grade = $2
+        AND DATE(b.batch_date) = DATE($3)
+        AND b.status <> 'Cancelled'
+      ORDER BY b.id ASC;
     `,
     [
       customerId,
       grade,
+      batchDate,
     ]
   );
 
@@ -949,9 +966,9 @@ async function recalculateCumulative(
 
     await client.query(
       `
-      UPDATE batches
-      SET cumulative_qty = $1
-      WHERE id = $2;
+        UPDATE batches
+        SET cumulative_qty = $1
+        WHERE id = $2;
       `,
       [
         runningCumulative,
@@ -964,7 +981,9 @@ async function recalculateCumulative(
         runningCumulative;
     }
   }
-}
+} 
+  
+
 
 
 /*
@@ -978,7 +997,8 @@ if (
 ) {
   await recalculateCumulative(
     Number(oldCustomerId),
-    oldGrade
+    oldGrade,
+    data.batchDate
   );
 }
 
@@ -1000,7 +1020,8 @@ if (
   if (!sameGroup) {
     await recalculateCumulative(
       Number(data.customerId),
-      newGrade
+      newGrade,
+      data.batchDate
     );
   }
 }

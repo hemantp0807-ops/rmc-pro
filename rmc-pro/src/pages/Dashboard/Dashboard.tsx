@@ -75,53 +75,7 @@ type DashboardStats = {
 /* MATERIAL TYPE                                     */
 /* ================================================= */
 
-type Material = {
-  key:
-  | "cement"
-  | "flyash"
-  | "sand"
-  | "mm10"
-  | "mm20"
-  | "water"
-  | "admix";
 
-  label: string;
-};
-
-/* ================================================= */
-/* MATERIALS                                         */
-/* ================================================= */
-
-const MATERIALS: Material[] = [
-  {
-    key: "cement",
-    label: "Cement",
-  },
-  {
-    key: "flyash",
-    label: "Fly Ash",
-  },
-  {
-    key: "sand",
-    label: "Sand",
-  },
-  {
-    key: "mm10",
-    label: "10 MM",
-  },
-  {
-    key: "mm20",
-    label: "20 MM",
-  },
-  {
-    key: "water",
-    label: "Water",
-  },
-  {
-    key: "admix",
-    label: "Admix",
-  },
-];
 
 /* ================================================= */
 /* DATE HELPERS                                      */
@@ -708,134 +662,32 @@ function ProductionPieChart({
 }: {
   batches: BatchData[];
 }) {
-  const pieData = useMemo(() => {
+ const pieData = useMemo(() => {
+  const gradeMap = new Map<string, number>();
 
-    const gradeMap =
-      new Map<
-        string,
-        Record<string, number>
-      >();
+  batches
+    .filter((batch) => !isCancelledBatch(batch))
+    .forEach((batch) => {
+      const grade = String(batch.grade || "").trim();
 
-    batches
-      .filter((batch) => !isCancelledBatch(batch))
-      .forEach((batch) => {
+      if (!grade) return;
 
-        const grade =
-          String(
-            batch.grade || ""
-          ).trim();
+      const quantity = Number(batch.quantity) || 0;
 
-        if (!grade) {
-          return;
-        }
-
-        if (
-          !gradeMap.has(
-            grade
-          )
-        ) {
-          gradeMap.set(
-            grade,
-            {}
-          );
-        }
-
-        const materialTotals =
-          gradeMap.get(
-            grade
-          )!;
-
-        MATERIALS.forEach(
-          (material) => {
-
-            const value =
-              Number(
-                batch[
-                material.key
-                ]
-              ) || 0;
-
-            materialTotals[
-              material.key
-            ] =
-              (
-                materialTotals[
-                material.key
-                ] || 0
-              ) + value;
-          }
-        );
-      }
+      gradeMap.set(
+        grade,
+        (gradeMap.get(grade) || 0) + quantity
       );
+    });
 
-    return Array.from(
-      gradeMap.entries()
-    )
-      .map(
-        ([
-          grade,
-          materials,
-        ]) => {
-
-          let highestMaterial: Material =
-            MATERIALS[0];
-
-          MATERIALS.forEach(
-            (
-              material: Material
-            ) => {
-
-              const currentValue =
-                Number(
-                  materials[
-                  material.key
-                  ]
-                ) || 0;
-
-              const highestValue =
-                Number(
-                  materials[
-                  highestMaterial
-                    .key
-                  ]
-                ) || 0;
-
-              if (
-                currentValue >
-                highestValue
-              ) {
-                highestMaterial =
-                  material;
-              }
-            }
-          );
-
-          const quantity =
-            Number(
-              materials[
-              highestMaterial.key
-              ]
-            ) || 0;
-
-          return {
-            grade,
-            material:
-              highestMaterial.label,
-            quantity,
-          };
-        }
-      )
-      .filter(
-        (item) =>
-          item.quantity > 0
-      )
-      .sort(
-        (a, b) =>
-          b.quantity -
-          a.quantity
-      );
-
-  }, [batches]);
+  return Array.from(gradeMap.entries())
+    .map(([grade, quantity]) => ({
+      grade,
+      quantity,
+    }))
+    .filter((item) => item.quantity > 0)
+    .sort((a, b) => b.quantity - a.quantity);
+}, [batches]);
 
   const total =
     pieData.reduce(
@@ -936,7 +788,7 @@ function ProductionPieChart({
             </h3>
 
             <p className="text-[10px] font-medium text-slate-400">
-              Highest material for each grade
+              Grade-wise production quantity
             </p>
           </div>
 
@@ -1030,7 +882,7 @@ function ProductionPieChart({
 
                 return (
                   <motion.div
-                    key={`${item.grade}-${item.material}`}
+                    
                     initial={{
                       opacity: 0,
                       x: 15,
@@ -1067,9 +919,7 @@ function ProductionPieChart({
                           {item.grade}
                         </p>
 
-                        <p className="truncate text-[9px] font-semibold text-slate-400">
-                          {item.material}
-                        </p>
+                       
 
                       </div>
 

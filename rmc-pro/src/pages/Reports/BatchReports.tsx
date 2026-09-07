@@ -396,21 +396,34 @@ export default function BatchReports() {
       /*
        * PERMANENT SYSTEM-WIDE SR NO.
        */
-      const srNo =
-        batch.sr_no ?? "-";
+      /*
+ * DAILY SR NO.
+ * Starts from 1 for each batch date.
+ */
+const srNo =
+  sameDayBatches.findIndex(
+    (item) =>
+      Number(item.id) === Number(batch.id)
+  ) + 1;
 
       const partyBatches =
-        sameDayBatches.filter(
-          (item) =>
-            item.status !== "Cancelled" &&
-            String(item.customer ?? "")
-              .trim()
-              .toLowerCase() ===
-            String(batch.customer ?? "")
-              .trim()
-              .toLowerCase() &&
-            Number(item.id) <= Number(batch.id)
-        );
+  sameDayBatches.filter(
+    (item) =>
+      item.status !== "Cancelled" &&
+      String(item.customer ?? "")
+        .trim()
+        .toLowerCase() ===
+        String(batch.customer ?? "")
+          .trim()
+          .toLowerCase() &&
+      String(item.grade ?? "")
+        .trim()
+        .toLowerCase() ===
+        String(batch.grade ?? "")
+          .trim()
+          .toLowerCase() &&
+      Number(item.id) <= Number(batch.id)
+  );
 
       const partyQty =
         partyBatches.reduce(

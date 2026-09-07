@@ -1439,9 +1439,11 @@ const rows: BatchReportRow[] = (() => {
       /* SR. NO.                                        */
       /* --------------------------------------------- */
 
-      const srNo = Number(
-        savedBatch.sr_no || 0
-      );
+     const srNo =
+  todayBatches.findIndex(
+    (batch: any) =>
+      Number(batch.id) === Number(savedBatch.id)
+  ) + 1;
 
 
       /* --------------------------------------------- */

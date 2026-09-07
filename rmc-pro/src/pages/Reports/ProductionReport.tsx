@@ -144,122 +144,68 @@ import toast from "react-hot-toast";
       toDate,
     ]);
 
-    /* ================================================= */
-    /* GROUP PRODUCTION REPORT                           */
-    /*                                                 */
-    /* Same Date + Customer + Grade = ONE ROW            */
-    /* ================================================= */
+   /* ================================================= */
+/* GROUP PRODUCTION REPORT                           */
+/*                                                   */
+/* Same Date + Customer + Grade = ONE ROW            */
+/* Total Qty = ONLY quantity for that date           */
+/* ================================================= */
 
-    const reportRows = useMemo(() => {
-      const groups = new Map<string, any>();
+const reportRows = useMemo(() => {
+  const groups = new Map<string, any>();
 
-      filteredBatches.forEach((batch) => {
-        const date = getDateOnly(
-          batch.batch_date
-        );
+  filteredBatches.forEach((batch) => {
+    const date = getDateOnly(batch.batch_date);
 
-        const customer =
-          batch.customer || "";
+    const customer = batch.customer || "";
+    const grade = batch.grade || "";
 
-        const grade =
-          batch.grade || "";
+    const key = `${date}|${customer}|${grade}`;
 
-        /*
-        * Unique combination:
-        *
-        * Date + Customer + Grade
-        */
+    const quantity = Number(batch.quantity) || 0;
 
-        const key =
-          `${date}|${customer}|${grade}`;
+    const existing = groups.get(key);
 
-        const existing = groups.get(key);
-
-        /*
-        * If multiple batches exist for the
-        * same customer + grade + date,
-        * keep the batch having the latest
-        * cumulative quantity.
-        */
-
-        const cumulativeQty =
-          Number(batch.cumulative_qty) || 0;
-
-        if (!existing) {
-          groups.set(key, {
-            date,
-            customer,
-            grade,
-            cumulativeQty,
-            latestBatchId: Number(batch.id) || 0,
-          });
-        } else {
-          const existingCumulative =
-            Number(existing.cumulativeQty) || 0;
-
-          const currentBatchId =
-            Number(batch.id) || 0;
-
-          /*
-          * Prefer the higher cumulative quantity.
-          *
-          * If equal, use the latest batch ID.
-          */
-
-          if (
-            cumulativeQty > existingCumulative ||
-            (
-              cumulativeQty === existingCumulative &&
-              currentBatchId > existing.latestBatchId
-            )
-          ) {
-            existing.cumulativeQty =
-              cumulativeQty;
-
-            existing.latestBatchId =
-              currentBatchId;
-          }
-        }
+    if (!existing) {
+      groups.set(key, {
+        date,
+        customer,
+        grade,
+        totalQty: quantity,
       });
+    } else {
+      existing.totalQty += quantity;
+    }
+  });
 
-      /*
-      * Convert Map to array
-      * and sort by date.
-      */
+  return Array.from(groups.values()).sort((a, b) => {
+    if (a.date !== b.date) {
+      return a.date.localeCompare(b.date);
+    }
 
-      return Array.from(groups.values()).sort(
-        (a, b) => {
-          if (a.date !== b.date) {
-            return a.date.localeCompare(b.date);
-          }
+    if (a.customer !== b.customer) {
+      return a.customer.localeCompare(b.customer);
+    }
 
-          if (
-            a.customer !== b.customer
-          ) {
-            return a.customer.localeCompare(
-              b.customer
-            );
-          }
-
-          return a.grade.localeCompare(
-            b.grade
-          );
-        }
-      );
-    }, [filteredBatches]);
+    return a.grade.localeCompare(b.grade);
+  });
+}, [filteredBatches]);
 
     /* ================================================= */
     /* TOTAL CUMULATIVE QUANTITY                         */
     /* ================================================= */
 
-    const totalQuantity = useMemo(() => {
-      return reportRows.reduce(
-        (sum, row) =>
-          sum +
-          Number(row.cumulativeQty || 0),
-        0
-      );
-    }, [reportRows]);
+   /* ================================================= */
+/* TOTAL QUANTITY                                    */
+/* ================================================= */
+
+const totalQuantity = useMemo(() => {
+  return reportRows.reduce(
+    (sum, row) =>
+      sum + Number(row.totalQty || 0),
+    0
+  );
+}, [reportRows]);
 
     /* ================================================= */
     /* CLEAR DATE FILTER                                 */
@@ -362,14 +308,38 @@ import toast from "react-hot-toast";
     srNo++;
   });
 
-  // Total quantity for selected date range
-  const totalQty = filteredBatches.reduce(
+ // Total quantity for selected date range
+const totalQty = filteredBatches.reduce(
+  (sum, batch) =>
+    sum + Number(batch.quantity || 0),
+  0
+);
+
+// Total quantity for the current month
+const now = new Date();
+
+const currentMonth = now.getMonth();
+const currentYear = now.getFullYear();
+
+const thisMonthQty = batches
+  .filter((batch) => {
+    if (!batch.batch_date) return false;
+
+    const batchDate = new Date(batch.batch_date);
+
+    return (
+      batchDate.getMonth() === currentMonth &&
+      batchDate.getFullYear() === currentYear
+    );
+  })
+  .reduce(
     (sum, batch) =>
       sum + Number(batch.quantity || 0),
     0
   );
 
-  message += `Total Qty=${totalQty}m3`;
+message += `Total Qty=${totalQty}m3\n`;
+message += `This Month Qty=${thisMonthQty}m3`;
 
   navigator.clipboard
     .writeText(message)
@@ -412,9 +382,9 @@ import toast from "react-hot-toast";
             row.grade,
 
           "Total Qty":
-            Number(
-              row.cumulativeQty || 0
-            ),
+  Number(
+    row.totalQty || 0
+  ),
 
           Remark: "",
         })),
@@ -447,7 +417,7 @@ import toast from "react-hot-toast";
       srNo: index + 1,
       partyName: row.customer,
       grade: row.grade,
-      totalQty: Number(row.cumulativeQty || 0),
+      totalQty: Number(row.totalQty || 0),
       remark: "",
     })),
     fromDate,
@@ -802,7 +772,7 @@ import toast from "react-hot-toast";
 
                     <td className="px-4 py-3.5">
                       <span className="text-sm font-black text-blue-700">
-                        {Number(row.cumulativeQty || 0)}
+                       {Number(row.totalQty || 0)}
                       </span>
                       <span className="ml-1 text-[10px] font-bold text-slate-400">
                         m³
