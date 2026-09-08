@@ -1,5 +1,5 @@
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  import.meta.env.VITE_API_URL || "http://10.251.150.1:5000/api";
 
 export interface LoginResponse {
   message: string;

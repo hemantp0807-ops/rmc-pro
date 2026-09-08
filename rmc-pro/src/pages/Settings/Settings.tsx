@@ -17,7 +17,7 @@ import {
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { getCurrentUser } from "../../utils/auth";
 
-const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5000/api"}/auth`;
+const API_URL = `${import.meta.env.VITE_API_URL || "http://10.251.150.1:5000/api"}/auth`;
 
 export default function Settings() {
   const user = getCurrentUser();

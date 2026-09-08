@@ -217,7 +217,7 @@ const totalQuantity = useMemo(() => {
     }
 
 
-    function handleCopyWhatsAppMessage() {
+   async function handleCopyWhatsAppMessage() {
   if (!fromDate || !toDate) {
     toast.error("Please select From Date and To Date.");
     return;
@@ -308,51 +308,110 @@ const totalQuantity = useMemo(() => {
     srNo++;
   });
 
- // Total quantity for selected date range
-const totalQty = filteredBatches.reduce(
-  (sum, batch) =>
-    sum + Number(batch.quantity || 0),
-  0
-);
-
-// Total quantity for the current month
-const now = new Date();
-
-const currentMonth = now.getMonth();
-const currentYear = now.getFullYear();
-
-const thisMonthQty = batches
-  .filter((batch) => {
-    if (!batch.batch_date) return false;
-
-    const batchDate = new Date(batch.batch_date);
-
-    return (
-      batchDate.getMonth() === currentMonth &&
-      batchDate.getFullYear() === currentYear
-    );
-  })
-  .reduce(
+  // Total quantity for selected date range
+  const totalQty = filteredBatches.reduce(
     (sum, batch) =>
       sum + Number(batch.quantity || 0),
     0
   );
 
-message += `Total Qty=${totalQty}m3\n`;
-message += `This Month Qty=${thisMonthQty}m3`;
+  // Total quantity for current month
+  const now = new Date();
 
-  navigator.clipboard
-    .writeText(message)
-    .then(() => {
-      toast.success(
-        "Production message copied."
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const thisMonthQty = batches
+    .filter((batch) => {
+      if (!batch.batch_date) return false;
+
+      const batchDate = new Date(
+        batch.batch_date
+      );
+
+      return (
+        batchDate.getMonth() === currentMonth &&
+        batchDate.getFullYear() === currentYear
       );
     })
-    .catch(() => {
-      toast.error(
-        "Failed to copy production message."
+    .reduce(
+      (sum, batch) =>
+        sum + Number(batch.quantity || 0),
+      0
+    );
+
+  message += `Total Qty=${totalQty}m3\n`;
+  message += `This Month Qty=${thisMonthQty}m3`;
+
+  /* --------------------------------------------- */
+  /* COPY MESSAGE                                  */
+  /* --------------------------------------------- */
+
+  let copied = false;
+
+  // Method 1: Modern Clipboard API
+  try {
+    if (
+      navigator.clipboard &&
+      window.isSecureContext
+    ) {
+      await navigator.clipboard.writeText(message);
+      copied = true;
+    }
+  } catch (error) {
+    console.warn(
+      "Modern clipboard failed:",
+      error
+    );
+  }
+
+  // Method 2: Fallback for HTTP / LAN
+  if (!copied) {
+    const textarea =
+      document.createElement("textarea");
+
+    textarea.value = message;
+
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    textarea.style.top = "0";
+    textarea.style.opacity = "0";
+
+    document.body.appendChild(textarea);
+
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(
+      0,
+      textarea.value.length
+    );
+
+    try {
+      copied =
+        document.execCommand("copy");
+    } catch (error) {
+      console.error(
+        "Fallback copy failed:",
+        error
       );
-    });
+    }
+
+    document.body.removeChild(textarea);
+  }
+
+  /* --------------------------------------------- */
+  /* RESULT                                        */
+  /* --------------------------------------------- */
+
+  if (copied) {
+    toast.success(
+      "Production message copied."
+    );
+  } else {
+    toast.error(
+      "Unable to copy production message."
+    );
+  }
 }
 
 

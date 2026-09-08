@@ -33,8 +33,9 @@ export default function Recipes() {
   const [deleting, setDeleting] = useState(false);
 
   const [form, setForm] = useState({
-    customerId: "",
-    recipeName: "",
+  customerId: "",
+  customerName: "",
+  recipeName: "",
     grade: "",
     cement: "",
     flyash: "",
@@ -75,7 +76,47 @@ export default function Recipes() {
       toast.error("Failed to load customers.");
     }
   }
+  const uniqueCustomers = useMemo(() => {
+  const map = new Map<string, any>();
 
+  customers.forEach((customer) => {
+    const name = customer.customer?.trim() || "";
+    if (!name) return;
+
+    const key = name.toLowerCase();
+
+    if (!map.has(key)) {
+      map.set(key, {
+        name,
+        sites: [],
+      });
+    }
+
+    const existing = map.get(key);
+
+    if (
+      customer.site &&
+      !existing.sites.some(
+        (site: string) =>
+          site.toLowerCase() === customer.site.toLowerCase()
+      )
+    ) {
+      existing.sites.push(customer.site);
+    }
+  });
+
+  return Array.from(map.values());
+}, [customers]);
+
+const selectedCustomerSites = useMemo(() => {
+  if (!form.customerName) return [];
+
+  return customers.filter(
+    (customer) =>
+      customer.customer?.trim().toLowerCase() ===
+      form.customerName.trim().toLowerCase()
+  );
+}, [customers, form.customerName]);
   /* ================================================= */
   /* FORM                                              */
   /* ================================================= */
@@ -136,8 +177,9 @@ export default function Recipes() {
       });
 
       setForm({
-        customerId: "",
-        recipeName: "",
+  customerId: "",
+  customerName: "",
+  recipeName: "",
         grade: "",
         cement: "",
         flyash: "",
@@ -302,38 +344,75 @@ export default function Recipes() {
               >
 
                 {/* CUSTOMER */}
-                <div>
+<div>
+  <label className={labelClass}>
+    Customer
+  </label>
 
-                  <label className={labelClass}>
-                    Customer
-                  </label>
+  <select
+    value={form.customerName}
+    onChange={(e) => {
+      const customerName = e.target.value;
 
-                  <select
-                    value={form.customerId}
-                    onChange={(e) =>
-                      updateField(
-                        "customerId",
-                        e.target.value
-                      )
-                    }
-                    className={inputClass}
-                    required
-                  >
-                    <option value="">
-                      Select Customer
-                    </option>
+      const matchingCustomers = customers.filter(
+        (customer) =>
+          customer.customer?.trim().toLowerCase() ===
+          customerName.trim().toLowerCase()
+      );
 
-                    {customers.map((customer) => (
-                      <option
-                        key={customer.id}
-                        value={customer.id}
-                      >
-                        {customer.customer}
-                      </option>
-                    ))}
-                  </select>
+      setForm((prev) => ({
+        ...prev,
+        customerName,
+        customerId:
+          matchingCustomers.length === 1
+            ? String(matchingCustomers[0].id)
+            : "",
+      }));
+    }}
+    className={inputClass}
+    required
+  >
+    <option value="">Select Customer</option>
 
-                </div>
+    {uniqueCustomers.map((customer) => (
+      <option
+        key={customer.name}
+        value={customer.name}
+      >
+        {customer.name}
+      </option>
+    ))}
+  </select>
+</div>
+
+{/* SITE */}
+{form.customerName && selectedCustomerSites.length > 1 && (
+  <div>
+    <label className={labelClass}>
+      Site
+    </label>
+
+    <select
+      value={form.customerId}
+      onChange={(e) =>
+        updateField("customerId", e.target.value)
+      }
+      className={inputClass}
+      required
+    >
+      <option value="">Select Site</option>
+
+      {selectedCustomerSites.map((customer) => (
+        <option
+          key={customer.id}
+          value={customer.id}
+        >
+          {customer.site}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
 
                 {/* GRADE */}
                 <div>

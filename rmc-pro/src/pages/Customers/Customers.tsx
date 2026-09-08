@@ -108,13 +108,16 @@ export default function Customers() {
 
       setEditingCustomer(null);
       setOpen(false);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+  console.error(error);
 
-      toast.error(
-        "Failed to save customer."
-      );
-    } finally {
+  const message =
+    error?.response?.data?.message ||
+    error?.message ||
+    "Failed to save customer.";
+
+  toast.error(message);
+} finally {
       setLoading(false);
     }
   }

@@ -369,87 +369,70 @@ export default function BatchReports() {
   /* COPY WHATSAPP MESSAGE                             */
   /* ================================================= */
 
-  async function handleCopyMessage(
-    batch: any
-  ) {
-    try {
-      const batchDate =
-        String(batch.batch_date ?? "")
-          .split("T")[0];
+ async function handleCopyMessage(batch: any) {
+  try {
+    const batchDate =
+      String(batch.batch_date ?? "").split("T")[0];
 
-      const sameDayBatches =
-        batches
-          .filter((item) => {
-            const itemDate =
-              String(
-                item.batch_date ?? ""
-              ).split("T")[0];
+    const sameDayBatches = batches
+      .filter((item) => {
+        const itemDate =
+          String(item.batch_date ?? "").split("T")[0];
 
-            return itemDate === batchDate;
-          })
-          .sort(
-            (a, b) =>
-              Number(a.id) -
-              Number(b.id)
-          );
+        return itemDate === batchDate;
+      })
+      .sort(
+        (a, b) =>
+          Number(a.id) - Number(b.id)
+      );
 
-      /*
-       * PERMANENT SYSTEM-WIDE SR NO.
-       */
-      /*
- * DAILY SR NO.
- * Starts from 1 for each batch date.
- */
-const srNo =
-  sameDayBatches.findIndex(
-    (item) =>
-      Number(item.id) === Number(batch.id)
-  ) + 1;
+    /*
+     * DAILY SR NO.
+     * Starts from 1 for each batch date.
+     */
+    const srNo =
+      sameDayBatches.findIndex(
+        (item) =>
+          Number(item.id) === Number(batch.id)
+      ) + 1;
 
-      const partyBatches =
-  sameDayBatches.filter(
-    (item) =>
-      item.status !== "Cancelled" &&
-      String(item.customer ?? "")
-        .trim()
-        .toLowerCase() ===
-        String(batch.customer ?? "")
+    const partyBatches = sameDayBatches.filter(
+      (item) =>
+        item.status !== "Cancelled" &&
+        String(item.customer ?? "")
           .trim()
-          .toLowerCase() &&
-      String(item.grade ?? "")
-        .trim()
-        .toLowerCase() ===
-        String(batch.grade ?? "")
+          .toLowerCase() ===
+          String(batch.customer ?? "")
+            .trim()
+            .toLowerCase() &&
+        String(item.grade ?? "")
           .trim()
-          .toLowerCase() &&
-      Number(item.id) <= Number(batch.id)
-  );
+          .toLowerCase() ===
+          String(batch.grade ?? "")
+            .trim()
+            .toLowerCase() &&
+        Number(item.id) <= Number(batch.id)
+    );
 
-      const partyQty =
-        partyBatches.reduce(
-          (sum, item) =>
-            sum +
-            (Number(
-              item.quantity
-            ) || 0),
-          0
-        );
+    const partyQty = partyBatches.reduce(
+      (sum, item) =>
+        sum + (Number(item.quantity) || 0),
+      0
+    );
 
-      const runningQty =
-        sameDayBatches
-          .filter(
-            (item) =>
-              item.status !== "Cancelled" &&
-              Number(item.id) <= Number(batch.id)
-          )
-          .reduce(
-            (sum, item) =>
-              sum + (Number(item.quantity) || 0),
-            0
-          );
+    const runningQty = sameDayBatches
+      .filter(
+        (item) =>
+          item.status !== "Cancelled" &&
+          Number(item.id) <= Number(batch.id)
+      )
+      .reduce(
+        (sum, item) =>
+          sum + (Number(item.quantity) || 0),
+        0
+      );
 
-      const message =
-        `\`\`\`
+    const message = `\`\`\`
 Date          :- ${formatDate(batch.batch_date)}
 Site Name     :- ${batch.customer || ""}
 Sr. No.       :- ${srNo}
@@ -462,24 +445,61 @@ Running Qty.  :- ${runningQty.toFixed(2)} m³
 Delivery Mode :- ${batch.type_of_loading || ""}
 \`\`\``;
 
-      await navigator.clipboard.writeText(
-        message
-      );
+    try {
+      await navigator.clipboard.writeText(message);
 
       toast.success(
         "Message copied successfully!"
       );
-    } catch (error) {
-      console.error(
-        "Failed to copy message:",
-        error
+    } catch (clipboardError) {
+      console.warn(
+        "Clipboard API failed, using fallback:",
+        clipboardError
       );
 
-      toast.error(
-        "Failed to copy message."
+      const textarea =
+        document.createElement("textarea");
+
+      textarea.value = message;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      textarea.style.top = "0";
+
+      document.body.appendChild(textarea);
+
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(
+        0,
+        textarea.value.length
+      );
+
+      const copied =
+        document.execCommand("copy");
+
+      document.body.removeChild(textarea);
+
+      if (!copied) {
+        throw new Error(
+          "Clipboard fallback failed"
+        );
+      }
+
+      toast.success(
+        "Message copied successfully!"
       );
     }
+  } catch (error) {
+    console.error(
+      "Failed to copy message:",
+      error
+    );
+
+    toast.error(
+      "Failed to copy message."
+    );
   }
+}
 
   /* ================================================= */
   /* PRINT CSS                                         */

@@ -18,6 +18,21 @@ export async function createCustomer(data: {
   contact_no?: string | null;
   contact_person?: string | null;
 }) {
+  const duplicate = await pool.query(
+    `
+    SELECT id
+    FROM customers
+    WHERE LOWER(TRIM(customer)) = LOWER(TRIM($1))
+      AND LOWER(TRIM(site)) = LOWER(TRIM($2))
+    LIMIT 1;
+    `,
+    [data.customer, data.site]
+  );
+
+  if (duplicate.rows.length > 0) {
+    throw new Error("A customer with the same site already exists.");
+  }
+
   const result = await pool.query(
     `
     INSERT INTO customers
@@ -29,10 +44,8 @@ export async function createCustomer(data: {
       contact_no,
       contact_person
     )
-
     VALUES
     ($1, $2, $3, $4, $5, $6)
-
     RETURNING *;
     `,
     [
@@ -59,10 +72,25 @@ export async function updateCustomer(
     contact_person?: string | null;
   }
 ) {
+  const duplicate = await pool.query(
+    `
+    SELECT id
+    FROM customers
+    WHERE LOWER(TRIM(customer)) = LOWER(TRIM($1))
+      AND LOWER(TRIM(site)) = LOWER(TRIM($2))
+      AND id <> $3
+    LIMIT 1;
+    `,
+    [data.customer, data.site, id]
+  );
+
+  if (duplicate.rows.length > 0) {
+    throw new Error("A customer with the same site already exists.");
+  }
+
   const result = await pool.query(
     `
     UPDATE customers
-
     SET
       customer = $1,
       site = $2,
@@ -70,9 +98,7 @@ export async function updateCustomer(
       party_gst_no = $4,
       contact_no = $5,
       contact_person = $6
-
     WHERE id = $7
-
     RETURNING *;
     `,
     [

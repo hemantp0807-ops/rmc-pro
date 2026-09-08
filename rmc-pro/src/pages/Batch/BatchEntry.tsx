@@ -1374,215 +1374,246 @@ const rows: BatchReportRow[] = (() => {
   /* COPY WHATSAPP MESSAGE                             */
   /* ================================================= */
 
-  async function handleCopyWhatsAppMessage() {
-    if (!savedBatch) {
-      toast.error("Please save the batch first.");
-      return;
-    }
+async function handleCopyWhatsAppMessage() {
+  if (!savedBatch) {
+    toast.error("Please save the batch first.");
+    return;
+  }
 
-    try {
-      const allBatches = await getBatches();
+  try {
+    const allBatches = await getBatches();
 
-      /* --------------------------------------------- */
-      /* CURRENT BATCH DATE                             */
-      /* --------------------------------------------- */
+    /* --------------------------------------------- */
+    /* CURRENT BATCH DATE                            */
+    /* --------------------------------------------- */
 
-      const savedDate = new Date(savedBatch.batch_date);
+    const savedDate = new Date(savedBatch.batch_date);
 
-      const currentDate =
-        savedDate.getFullYear() +
+    const currentDate =
+      savedDate.getFullYear() +
+      "-" +
+      String(savedDate.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(savedDate.getDate()).padStart(2, "0");
+
+    /* --------------------------------------------- */
+    /* SAFE DATE FUNCTION                            */
+    /* --------------------------------------------- */
+
+    const getDate = (value: any) => {
+      if (!value) return "";
+
+      const date = new Date(value);
+
+      if (isNaN(date.getTime())) {
+        return "";
+      }
+
+      return (
+        date.getFullYear() +
         "-" +
-        String(savedDate.getMonth() + 1).padStart(2, "0") +
+        String(date.getMonth() + 1).padStart(2, "0") +
         "-" +
-        String(savedDate.getDate()).padStart(2, "0");
+        String(date.getDate()).padStart(2, "0")
+      );
+    };
 
+    /* --------------------------------------------- */
+    /* TODAY'S BATCHES                               */
+    /* --------------------------------------------- */
 
-      /* --------------------------------------------- */
-      /* SAFE DATE FUNCTION                             */
-      /* --------------------------------------------- */
+    const todayBatches = allBatches
+      .filter(
+        (batch: any) =>
+          getDate(batch.batch_date) === currentDate
+      )
+      .sort(
+        (a: any, b: any) =>
+          Number(a.id) - Number(b.id)
+      );
 
-      const getDate = (value: any) => {
-        if (!value) return "";
+    /* --------------------------------------------- */
+    /* SR. NO.                                       */
+    /* --------------------------------------------- */
 
-        const date = new Date(value);
+    const srNo =
+      todayBatches.findIndex(
+        (batch: any) =>
+          Number(batch.id) === Number(savedBatch.id)
+      ) + 1;
 
-        if (isNaN(date.getTime())) {
-          return "";
-        }
+    /* --------------------------------------------- */
+    /* CUSTOMER + RECIPE                             */
+    /* --------------------------------------------- */
+
+    const currentCustomerId = Number(
+      savedBatch.customer_id ??
+      savedBatch.customerId
+    );
+
+    const currentRecipeId = Number(
+      savedBatch.recipe_id ??
+      savedBatch.recipeId
+    );
+
+    /* --------------------------------------------- */
+    /* PARTY QTY                                      */
+    /* SAME CUSTOMER + SAME GRADE/RECIPE             */
+    /* --------------------------------------------- */
+
+    const partyQty = todayBatches
+      .filter((batch: any) => {
+        const batchCustomerId = Number(
+          batch.customer_id ??
+          batch.customerId
+        );
+
+        const batchRecipeId = Number(
+          batch.recipe_id ??
+          batch.recipeId
+        );
 
         return (
-          date.getFullYear() +
-          "-" +
-          String(date.getMonth() + 1).padStart(2, "0") +
-          "-" +
-          String(date.getDate()).padStart(2, "0")
+          batchCustomerId === currentCustomerId &&
+          batchRecipeId === currentRecipeId &&
+          Number(batch.id) <= Number(savedBatch.id)
         );
-      };
+      })
+      .reduce(
+        (total: number, batch: any) =>
+          total + (Number(batch.quantity) || 0),
+        0
+      );
 
+    /* --------------------------------------------- */
+    /* RUNNING QTY                                   */
+    /* ALL BATCHES OF THAT DAY                       */
+    /* --------------------------------------------- */
 
-      /* --------------------------------------------- */
-      /* TODAY'S BATCHES                                */
-      /* --------------------------------------------- */
+    const runningQty = todayBatches
+      .filter(
+        (batch: any) =>
+          Number(batch.id) <=
+          Number(savedBatch.id)
+      )
+      .reduce(
+        (total: number, batch: any) =>
+          total + (Number(batch.quantity) || 0),
+        0
+      );
 
-      const todayBatches = allBatches
-        .filter(
-          (batch: any) =>
-            getDate(batch.batch_date) === currentDate
-        )
-        .sort(
-          (a: any, b: any) =>
-            Number(a.id) - Number(b.id)
-        );
+    /* --------------------------------------------- */
+    /* DATE                                          */
+    /* --------------------------------------------- */
 
+    const formattedDate =
+      `${String(savedDate.getDate()).padStart(2, "0")}/` +
+      `${String(savedDate.getMonth() + 1).padStart(2, "0")}/` +
+      `${savedDate.getFullYear()}`;
 
-      /* --------------------------------------------- */
-      /* SR. NO.                                        */
-      /* --------------------------------------------- */
+    /* --------------------------------------------- */
+    /* MESSAGE                                       */
+    /* --------------------------------------------- */
 
-     const srNo =
-  todayBatches.findIndex(
-    (batch: any) =>
-      Number(batch.id) === Number(savedBatch.id)
-  ) + 1;
-
-
-      /* --------------------------------------------- */
-      /* CUSTOMER + RECIPE                              */
-      /* --------------------------------------------- */
-
-      const currentCustomerId =
-        Number(
-          savedBatch.customer_id ??
-          savedBatch.customerId
-        );
-
-      const currentRecipeId =
-        Number(
-          savedBatch.recipe_id ??
-          savedBatch.recipeId
-        );
-
-
-      /* --------------------------------------------- */
-      /* PARTY QTY                                      */
-      /* SAME CUSTOMER + SAME GRADE/RECIPE             */
-      /* --------------------------------------------- */
-
-      const partyQty =
-        todayBatches
-          .filter((batch: any) => {
-
-            const batchCustomerId =
-              Number(
-                batch.customer_id ??
-                batch.customerId
-              );
-
-            const batchRecipeId =
-              Number(
-                batch.recipe_id ??
-                batch.recipeId
-              );
-
-            return (
-              batchCustomerId ===
-              currentCustomerId &&
-
-              batchRecipeId ===
-              currentRecipeId &&
-
-              Number(batch.id) <=
-              Number(savedBatch.id)
-            );
-          })
-          .reduce(
-            (
-              total: number,
-              batch: any
-            ) =>
-              total +
-              (Number(batch.quantity) || 0),
-            0
-          );
-
-
-      /* --------------------------------------------- */
-      /* RUNNING QTY                                    */
-      /* ALL BATCHES OF THAT DAY                        */
-      /* --------------------------------------------- */
-
-      const runningQty =
-        todayBatches
-          .filter(
-            (batch: any) =>
-              Number(batch.id) <=
-              Number(savedBatch.id)
-          )
-          .reduce(
-            (
-              total: number,
-              batch: any
-            ) =>
-              total +
-              (Number(batch.quantity) || 0),
-            0
-          );
-
-
-      /* --------------------------------------------- */
-      /* DATE                                           */
-      /* --------------------------------------------- */
-
-      const formattedDate =
-        `${String(savedDate.getDate()).padStart(2, "0")}/` +
-        `${String(savedDate.getMonth() + 1).padStart(2, "0")}/` +
-        `${savedDate.getFullYear()}`;
-
-
-      /* --------------------------------------------- */
-      /* MESSAGE                                        */
-      /* --------------------------------------------- */
-
-      const message =
-        `\`\`\`
+    const message =
+      `\`\`\`
   Date          :- ${formattedDate}
   Site Name     :- ${savedBatch.customer || ""}
   Sr. No.       :- ${srNo}
-  Challan No.   :- ${savedBatch.delivery_no || ""}  
+  Challan No.   :- ${savedBatch.delivery_no || ""}
   Vehicle No.   :- ${savedBatch.vehicle_no || ""}
   Grade.        :- ${savedBatch.grade || ""}
   Challan Qty.  :- ${Number(savedBatch.quantity || 0).toFixed(2)} m³
   Party Qty.    :- ${partyQty.toFixed(2)} m³
   Running Qty.  :- ${runningQty.toFixed(2)} m³
-  Delivery Mode :- ${savedBatch.type_of_loading ||
-        savedBatch.typeOfLoading ||
-        ""
-        }
+  Delivery Mode :- ${
+    savedBatch.type_of_loading ||
+    savedBatch.typeOfLoading ||
+    ""
+  }
   \`\`\``;
 
+    /* --------------------------------------------- */
+    /* COPY FUNCTION                                 */
+    /* --------------------------------------------- */
 
-      /* --------------------------------------------- */
-      /* COPY                                           */
-      /* --------------------------------------------- */
+    let copied = false;
 
-      await navigator.clipboard.writeText(message);
+    // Method 1: Modern Clipboard API
+    try {
+      if (
+        navigator.clipboard &&
+        window.isSecureContext
+      ) {
+        await navigator.clipboard.writeText(message);
+        copied = true;
+      }
+    } catch (error) {
+      console.warn(
+        "Modern clipboard failed:",
+        error
+      );
+    }
 
+    // Method 2: Fallback for LAN / HTTP
+    if (!copied) {
+      const textarea =
+        document.createElement("textarea");
+
+      textarea.value = message;
+
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      textarea.style.top = "0";
+      textarea.style.opacity = "0";
+
+      document.body.appendChild(textarea);
+
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(
+        0,
+        textarea.value.length
+      );
+
+      try {
+        copied =
+          document.execCommand("copy");
+      } catch (error) {
+        console.error(
+          "Fallback copy failed:",
+          error
+        );
+      }
+
+      document.body.removeChild(textarea);
+    }
+
+    /* --------------------------------------------- */
+    /* RESULT                                        */
+    /* --------------------------------------------- */
+
+    if (copied) {
       toast.success(
         "WhatsApp message copied successfully."
       );
-
-    } catch (error) {
-
-      console.error(
-        "Failed to copy WhatsApp message:",
-        error
-      );
-
+    } else {
       toast.error(
-        "Failed to copy WhatsApp message."
+        "Unable to copy message. Please copy it manually."
       );
     }
+
+  } catch (error) {
+    console.error(
+      "Failed to prepare WhatsApp message:",
+      error
+    );
+
+    toast.error(
+      "Failed to copy WhatsApp message."
+    );
   }
+}
 
 
   function handleDeleteBatch(id: number) {
