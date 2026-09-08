@@ -5,7 +5,7 @@ dotenv.config();
 import app from "./app";
 import pool from "./config/database";
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
 async function startServer() {
   try {
